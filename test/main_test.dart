@@ -2,6 +2,7 @@ import 'package:bloc_auth_tdd/auth_bloc.dart';
 import 'package:bloc_auth_tdd/auth_service.dart';
 import 'package:bloc_test/bloc_test.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:matcher/matcher.dart';
 import 'package:mockito/mockito.dart';
 
 class MockAuthService extends Mock implements AuthService {}
@@ -9,12 +10,9 @@ class MockAuthService extends Mock implements AuthService {}
 final mockUser = User('42', 'testuser');
 final mockCorrectCredentials = Credentials('username', 'password');
 
-Future<void> verifyAuthenticatedUser(AuthBloc bloc) async {
-  final state = bloc.state;
-
-  if (state is AuthenticatedState) {
-    expect(state.user, equals(mockUser));
-  }
+Matcher isAuthenticatedState(User user) {
+  return const TypeMatcher<AuthenticatedState>()
+      .having((state) => state.user, 'user', user);
 }
 
 void main() {
@@ -25,6 +23,10 @@ void main() {
   setUp(() {
     authService = MockAuthService();
     bloc = AuthBloc(authService);
+  });
+
+  tearDown(() {
+    bloc.close();
   });
 
   group('AuthBloc', () {
@@ -41,8 +43,7 @@ void main() {
               .thenAnswer((_) async => mockUser);
           bloc.add(RestoreAuthEvent());
         },
-        verify: verifyAuthenticatedUser,
-        expect: [isA<LoadingState>(), isA<AuthenticatedState>()],
+        expect: [isA<LoadingState>(), isAuthenticatedState(mockUser)],
       );
     });
 
@@ -67,8 +68,7 @@ void main() {
 
         bloc.add(SignInEvent(mockCorrectCredentials));
       },
-      verify: verifyAuthenticatedUser,
-      expect: [isA<LoadingState>(), isA<AuthenticatedState>()],
+      expect: [isA<LoadingState>(), isAuthenticatedState(mockUser)],
     );
 
     blocTest<AuthBloc, AuthEvent, AuthState>(
